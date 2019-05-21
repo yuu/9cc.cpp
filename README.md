@@ -21,5 +21,5 @@ $ make test
 ```
 
 ## Requirements
-  - c++14
+  - c++17
   - cmake 3.13 or above
