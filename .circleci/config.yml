@@ -1,0 +1,19 @@
+version: 2.1
+jobs:
+  build-test:
+    docker:
+      - image: debian:buster-20190506
+    steps:
+      - checkout
+      - run:
+          name: dependencies
+          command: |
+            apt update
+            apt install -y build-essential cmake
+      - run: make build
+      - run: make test
+
+workflows:
+  build-test:
+    jobs:
+      - build-test

@@ -21,3 +21,6 @@ release: ## release build
 
 test: ## run unit test
 	@./test.sh
+
+validate: ## circleci config validate
+	@circleci config validate
