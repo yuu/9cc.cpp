@@ -17,6 +17,24 @@ int main(int argc, char **argv) {
     printf(".global main\n");
     printf("main:\n");
     printf("  mov rax, %ld\n", strtol(expr, &expr, 10));
+
+    while (*expr) {
+        if (*expr == '+') {
+            expr++;
+            printf("  add rax, %ld\n", strtol(expr, &expr, 10));
+            continue;
+        }
+
+        if (*expr == '-') {
+            expr++;
+            printf("  sub rax, %ld\n", strtol(expr, &expr, 10));
+            continue;
+        }
+
+        fprintf(stderr, "予期しない文字です: '%c'\n", *expr);
+        return 1;
+    }
+
     printf("  ret\n");
 
     return 0;
