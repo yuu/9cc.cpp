@@ -9,6 +9,7 @@ file(GLOB SOURCES
 add_executable(${PROJECT_NAME} ${SOURCES})
 
 set(CMAKE_CXX_FLAGS "-std=c++17 -Wall -Wextra")
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 
 message("--- build option message ---")
