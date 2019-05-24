@@ -81,7 +81,7 @@ int main(int argc, char **argv) {
     printf("  mov rax, %lld\n", iter->val);
 
     iter++;
-    for (;iter != tokens.end(); iter++) {
+    for (; iter != tokens.end(); iter++) {
         if (iter->type == '+') {
             iter++;
             if (iter->type != TK_NUM) {
