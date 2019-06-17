@@ -1,4 +1,4 @@
-.PHONY: help build release test
+.PHONY: help build release test docker-build docker-up
 .DEFAULT_GOAL := help
 
 BUILD_DIR := build
@@ -24,3 +24,9 @@ test: ## run unit test
 
 validate: ## circleci config validate
 	@circleci config validate
+
+docker-build:
+	@docker-compose build
+
+docker-up:
+	@docker-compose up -d
