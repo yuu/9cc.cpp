@@ -162,7 +162,7 @@ std::shared_ptr<Node> expr(TokenIter &iter) {
     }
 }
 
-void gen(std::unique_ptr<Node> node) {
+void gen(std::weak_ptr<Node> node) {
     /*
     auto iter = tokens.begin();
     if (iter->type != TK_NUM) {
@@ -214,7 +214,7 @@ int main(int argc, char **argv) {
     printf(".global main\n");
     printf("main:\n");
 
-    // gen(std::move(node));
+    gen(node);
 
     printf("  pop rax\n");
     printf("  ret\n");
