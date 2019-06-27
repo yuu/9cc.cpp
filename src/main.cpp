@@ -143,8 +143,8 @@ std::shared_ptr<Node> mul(TokenIter &iter) {
             node = std::make_shared<Node>('*', node, term(iter));
         else if (consume('/', iter))
             node = std::make_shared<Node>('/', node, term(iter));
-
-        return node;
+        else
+            return node;
     }
 }
 
@@ -157,42 +157,41 @@ std::shared_ptr<Node> expr(TokenIter &iter) {
             node = std::make_shared<Node>('+', node, mul(iter));
         else if (consume('-', iter))
             node = std::make_shared<Node>('-', node, mul(iter));
-
-        return node;
+        else
+            return node;
     }
 }
 
 void gen(std::weak_ptr<Node> node) {
-    /*
-    auto iter = tokens.begin();
-    if (iter->type != TK_NUM) {
-        error_at(iter->input, "not num type");
+    auto d = node.lock();
+    if (d->ty == ND_NUM) {
+        printf("  push %d\n", d->val);
+        return;
     }
-    printf("  mov rax, %lld\n", iter->val);
 
-    iter++;
-    for (; iter != tokens.end(); iter++) {
-        if (iter->type == '+') {
-            iter++;
-            if (iter->type != TK_NUM) {
-                error_at(iter->input, "unexpected num type");
-            }
-            printf("  add rax, %lld\n", iter->val);
-            continue;
-        }
+    gen(d->lhs);
+    gen(d->rhs);
 
-        if (iter->type == '-') {
-            iter++;
-            if (iter->type != TK_NUM) {
-                error_at(iter->input, "unexpected num type");
-            }
-            printf("  sub rax, %lld\n", iter->val);
-            continue;
-        }
+    printf("  pop rdi\n");
+    printf("  pop rax\n");
 
-        error_at(iter->input, "Failed unexpected token");
+    switch (d->ty) {
+    case '+':
+        printf("  add rax, rdi\n");
+        break;
+    case '-':
+        printf("  sub rax, rdi\n");
+        break;
+    case '*':
+        printf("  imul rax, rdi\n");
+        break;
+    case '/':
+        printf("  cqo\n");
+        printf("  idiv rdi\n");
+        break;
     }
-    */
+
+    printf("  push rax\n");
 }
 
 int main(int argc, char **argv) {
