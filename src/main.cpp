@@ -1,6 +1,8 @@
 #include <cstdio>
+#include <memory>
 #include <string>
 #include <vector>
+#include <cassert>
 #include "cmdline.h"
 
 enum {
@@ -14,8 +16,42 @@ struct Token {
     char *input;  // about error
 };
 
+enum {
+      ND_MUL,
+      ND_TERM,
+
+      ND_NUM = 200,
+};
+struct Node {
+    std::shared_ptr<Node> lhs;
+    std::shared_ptr<Node> rhs;
+
+    int ty;
+    int val;
+
+    Node() = delete;
+
+    Node(int ty, std::shared_ptr<Node> lhs, std::shared_ptr<Node> rhs)
+        : lhs(lhs)
+        , rhs(rhs)
+        , ty(ty)
+        , val(0) {}
+
+    Node(int val_)
+        : lhs(nullptr)
+        , rhs(nullptr)
+        , ty(ND_NUM)
+        , val(val_) {}
+};
+
 char *user_input;
 std::vector<Token> tokens;
+using TokenIter = decltype(tokens)::iterator;
+
+bool consume(int ty, TokenIter &iter);
+std::shared_ptr<Node> term(TokenIter &iter);
+std::shared_ptr<Node> mul(TokenIter &iter);
+std::shared_ptr<Node> expr(TokenIter &iter);
 
 #if 0
 void error(const char *fmt, ...) {
@@ -44,14 +80,22 @@ void tokenize() {
             continue;
         }
 
-        if (*p == '+' || *p == '-') {
+        if (*p == '*' || *p == '/') {
             tokens.emplace_back(Token{*p, -1, p});
             p++;
             continue;
         }
 
+        if (*p == '+' || *p == '-') {
+            tokens.emplace_back(Token{*p, -10, p});
+            p++;
+            continue;
+        }
+
         if (isdigit(*p)) {
-            tokens.emplace_back(Token{TK_NUM, strtol(p, &p, 10), p});
+            const auto num = strtol(p, &p, 10);
+            const auto t = Token{TK_NUM, num, p};
+            tokens.emplace_back(t);
             continue;
         }
 
@@ -59,50 +103,119 @@ void tokenize() {
     }
 }
 
+bool consume(int ty, TokenIter &iter) {
+    if (iter->type != ty) {
+        // printf("%s iter=%c or %d\n", __func__, iter->type, iter->type);
+        return false;
+    }
+
+    ++iter;
+    // printf("%s next iter=%c or %d\n", __func__, iter->type, iter->type);
+
+    return true;
+}
+
+std::shared_ptr<Node> term(TokenIter &iter) {
+    // printf("%s iter=%c or %d\n", __func__, iter->type, iter->type);
+    if (consume('(', iter)) {
+        auto node = expr(iter);
+        if (!consume(')', iter))
+            error_at(iter->input, ") is not found");
+
+        return node;
+    }
+
+    if (iter->type == TK_NUM) {
+        auto ret = std::make_shared<Node>(iter->val);
+        ++iter;
+        return ret;
+    }
+
+    error_at(iter->input, "not numlic or (");
+}
+
+std::shared_ptr<Node> mul(TokenIter &iter) {
+    // printf("%s iter=%c or %d\n", __func__, iter->type, iter->type);
+    auto node = term(iter);
+
+    for (;;) {
+        if (consume('*', iter))
+            node = std::make_shared<Node>('*', node, term(iter));
+        else if (consume('/', iter))
+            node = std::make_shared<Node>('/', node, term(iter));
+        else
+            return node;
+    }
+}
+
+std::shared_ptr<Node> expr(TokenIter &iter) {
+    // printf("%s iter=%c or %d\n", __func__, iter->type, iter->type);
+    auto node = mul(iter);
+
+    for (;;) {
+        if (consume('+', iter))
+            node = std::make_shared<Node>('+', node, mul(iter));
+        else if (consume('-', iter))
+            node = std::make_shared<Node>('-', node, mul(iter));
+        else
+            return node;
+    }
+}
+
+void gen(std::weak_ptr<Node> node) {
+    auto d = node.lock();
+    if (d->ty == ND_NUM) {
+        printf("  push %d\n", d->val);
+        return;
+    }
+
+    gen(d->lhs);
+    gen(d->rhs);
+
+    printf("  pop rdi\n");
+    printf("  pop rax\n");
+
+    switch (d->ty) {
+    case '+':
+        printf("  add rax, rdi\n");
+        break;
+    case '-':
+        printf("  sub rax, rdi\n");
+        break;
+    case '*':
+        printf("  imul rax, rdi\n");
+        break;
+    case '/':
+        printf("  cqo\n");
+        printf("  idiv rdi\n");
+        break;
+    }
+
+    printf("  push rax\n");
+}
+
 int main(int argc, char **argv) {
     cmdline::parser p;
     p.add<std::string>("expr", 'e', "input expr", true, "");
     p.parse_check(argc, argv);
-
     {
         auto tmp = p.get<std::string>("expr");
         user_input = tmp.data();
     }
     tokenize();
+    // for (auto &&t : tokens) {
+    //     printf("type=%c val=%ld\n", t.type, t.val);
+    // }
+    auto iter = tokens.begin();
+    auto node = expr(iter);
 
     printf(".intel_syntax noprefix\n");
     printf(".global main\n");
     printf("main:\n");
 
-    auto iter = tokens.begin();
-    if (iter->type != TK_NUM) {
-        error_at(iter->input, "not num type");
-    }
-    printf("  mov rax, %lld\n", iter->val);
+    gen(node);
 
-    iter++;
-    for (; iter != tokens.end(); iter++) {
-        if (iter->type == '+') {
-            iter++;
-            if (iter->type != TK_NUM) {
-                error_at(iter->input, "unexpected num type");
-            }
-            printf("  add rax, %lld\n", iter->val);
-            continue;
-        }
-
-        if (iter->type == '-') {
-            iter++;
-            if (iter->type != TK_NUM) {
-                error_at(iter->input, "unexpected num type");
-            }
-            printf("  sub rax, %lld\n", iter->val);
-            continue;
-        }
-
-        error_at(iter->input, "Failed unexpected token");
-    }
-
+    printf("  pop rax\n");
     printf("  ret\n");
 
     return 0;
